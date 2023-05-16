@@ -10,14 +10,16 @@ p_reactor_t createReactor(int size, int listenerFd)
     reactor->size = size;
     reactor->isRunning = 0;
     reactor->listenerFd = listenerFd;
-    pthread_mutex_init(&reactor->thread, NULL);
     return reactor;
 }
 
 void stopReactor(p_reactor_t reactor)
 {
-    reactor->isRunning = 0;
-    pthread_mutex_destroy(&reactor->thread);
+    if (reactor != NULL)
+    {
+        reactor->isRunning = 0;
+        pthread_join(reactor->thread, NULL);
+    }
 }
 
 void startReactor(p_reactor_t reactor)
@@ -36,7 +38,6 @@ void *runReactor(void *arg)
     {
         waitFor(reactor);
     }
-    return NULL;
 }
 
 void addFd(p_reactor_t reactor, int fd, handler_t handler)
@@ -123,7 +124,6 @@ void deleteReactor(p_reactor_t reactor)
         {
             free(reactor->fds);
         }
-        pthread_mutex_destroy(&reactor->thread);
         free(reactor);
     }
 }

@@ -6,7 +6,6 @@ void sigHandler(int sig)
 {
     if (p_reactor)
     {
-        stopReactor(p_reactor);
         deleteReactor(p_reactor);
     }
 
@@ -152,11 +151,10 @@ int main(void)
     signal(SIGTERM, sigHandler);
     int listener; // Listening socket descriptor
 
-    int newfd;                          // Newly accept()ed socket descriptor
+    int newfd;                          // Newly accepted socket descriptor
     struct sockaddr_storage remoteaddr; // Client address
     socklen_t addrlen;
 
-    char buf[256]; // Buffer for client data
 
     char remoteIP[INET6_ADDRSTRLEN];
 

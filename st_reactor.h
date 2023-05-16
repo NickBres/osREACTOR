@@ -18,7 +18,7 @@ typedef struct st_reactor
     int size; // array size
     int isRunning; // reactor status
     int listenerFd; // listener fd
-    pthread_mutex_t thread; // reactor thread. mutex to make it thread safe
+    pthread_t thread; // reactor thread. mutex to make it thread safe
 }reactor_t, *p_reactor_t;
 
 p_reactor_t createReactor(int size,int listenerFd); // allocate memory for reactor
