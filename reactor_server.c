@@ -1,12 +1,17 @@
-#include "st_reactor.h"
+#include "reactor_server.h"
+
+p_reactor_t p_reactor;
 
 void sigHandler(int sig)
 {
-    stopReactor(p_reactor);
-    deleteReactor(p_reactor);
+    if (p_reactor)
+    {
+        stopReactor(p_reactor);
+        deleteReactor(p_reactor);
+    }
+
     exit(0);
 }
-
 
 // Get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -76,7 +81,8 @@ int get_listener_socket(void)
     return listener;
 }
 
-void connectionHandler(p_reactor_t reactor,void *arg){
+void connectionHandler(p_reactor_t reactor, void *arg)
+{
     struct sockaddr_storage remoteaddr; // Client address
     socklen_t addrlen;
     char remoteIP[INET6_ADDRSTRLEN];
@@ -90,42 +96,54 @@ void connectionHandler(p_reactor_t reactor,void *arg){
     }
     else
     {
-        handler_t clientHandler;
-        clientHandler.arg = NULL;
-        clientHandler.handler = &clientHandler;
-        addFd(reactor, newfd, clientHandler);
+        printf("server: new connection from %s on "
+               "socket %d\n",
+               inet_ntop(remoteaddr.ss_family,
+                         get_in_addr((struct sockaddr *)&remoteaddr),
+                         remoteIP, INET6_ADDRSTRLEN),
+               newfd);
+        handler_t cHandler;
+        cHandler.arg = NULL;
+        cHandler.handler = &clientHandler;
+        addFd(reactor, newfd, cHandler);
     }
 }
-void clientHandler(p_reactor_t reactor,int client_fd,void *arg){
-    char buf[BUFF_SIZE];
+void clientHandler(p_reactor_t reactor, int client_fd, void *arg)
+{
+    char buf[BUFF_SIZE] = {0};
     int nbytes;
 
     nbytes = recv(client_fd, buf, BUFF_SIZE, 0);
-    if(nbytes<=0){
-        if(nbytes==0){
+    if (nbytes <= 0)
+    {
+        if (nbytes == 0)
+        {
             printf("server: socket %d hung up\n", client_fd);
         }
-        else{
+        else
+        {
             perror("recv");
         }
         close(client_fd);
         deleteFd(reactor, client_fd);
     }
-    else{
+    else
+    {
         // send to all clients
-        printf("server: socket %d got message: %s\n", client_fd, buf);
-        for(int i=0;i<reactor->size;i++){
-            if(reactor->fds[i].fd!=client_fd && reactor->fds[i].fd!=reactor->listenerFd){
-                if(send(reactor->fds[i].fd, buf, nbytes, 0)==-1){
+        printf("server: socket %d got message: %s", client_fd, buf);
+        for (int i = 0; i < reactor->count; i++)
+        {
+            if (reactor->fds[i].fd != client_fd && reactor->fds[i].fd != reactor->listenerFd)
+            {
+                if (send(reactor->fds[i].fd, buf, nbytes, 0) == -1)
+                {
                     perror("send");
                 }
             }
         }
         printf("message sent to all clients\n");
     }
-    
 }
-
 
 int main(void)
 {
@@ -142,9 +160,6 @@ int main(void)
 
     char remoteIP[INET6_ADDRSTRLEN];
 
-    
-
-
     // Set up and get a listening socket
     printf("listener: waiting for connections...\n");
     listener = get_listener_socket();
@@ -156,15 +171,13 @@ int main(void)
     }
 
     // Create reactor
-    reactor_t reactor;
-    p_reactor_t p_reactor = &reactor;
-    p_reactor = createReactor(5,listener); // 5 is the size of reactor will expand if needed
+    p_reactor = createReactor(5, listener); // 5 is the size of reactor will expand if needed
 
     // Add the listener to set
-    handler_t connectionHandler;
-    connectionHandler.arg = NULL;
-    connectionHandler.handler = &connectionHandler;
-    addFd(p_reactor, listener, connectionHandler);
+    handler_t cHandler;
+    cHandler.arg = NULL;
+    cHandler.handler = &connectionHandler;
+    addFd(p_reactor, listener, cHandler);
 
     startReactor(p_reactor);
     printf("Reactor is running to stop the programm use CTRL+C\n");
@@ -172,7 +185,8 @@ int main(void)
     // now after reactor is runnig in other thread server can do other operations if needed
     // in our case nothing will happen so we will let the server some rest
     // only signal can stop the server/reactor
-    while(p_reactor->isRunning){
+    while (p_reactor->isRunning)
+    {
         sleep(1); // zzzzzzzz
     }
 

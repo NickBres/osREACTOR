@@ -4,11 +4,11 @@
 #include <sys/poll.h>
 #include <pthread.h>
 
-typedef struct st_handler
-{
-    void* arg;
+typedef struct st_reactor* p_reactor_t;
+typedef struct {
     void (*handler)(p_reactor_t, int, void*);
-}handler_t, *p_handler_t;
+    void* arg;
+} handler_t, *p_handler_t;
 
 typedef struct st_reactor
 {

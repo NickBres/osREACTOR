@@ -22,13 +22,11 @@ void stopReactor(p_reactor_t reactor)
 
 void startReactor(p_reactor_t reactor)
 {
-    pthread_mutex_lock(&reactor->thread);
-    if (reactor->isRunning)
+    if (!reactor->isRunning)
     {
         reactor->isRunning = 1;
         pthread_create(&reactor->thread, NULL, runReactor, reactor);
     }
-    pthread_mutex_unlock(&reactor->thread);
 }
 
 void *runReactor(void *arg)
@@ -36,16 +34,13 @@ void *runReactor(void *arg)
     p_reactor_t reactor = (p_reactor_t)arg;
     while (reactor->isRunning)
     {
-        pthread_mutex_lock(&reactor->thread);
         waitFor(reactor);
-        pthread_mutex_unlock(&reactor->thread);
     }
     return NULL;
 }
 
 void addFd(p_reactor_t reactor, int fd, handler_t handler)
 {
-    pthread_mutex_lock(&reactor->thread);
     if (reactor->count < reactor->size)
     {
         reactor->handlers[reactor->count] = (p_handler_t)malloc(sizeof(handler_t));
@@ -55,7 +50,14 @@ void addFd(p_reactor_t reactor, int fd, handler_t handler)
         reactor->fds[reactor->count].events = POLLIN;
         reactor->count++;
     }
-    pthread_mutex_unlock(&reactor->thread);
+    else
+    {
+        // expand arrays
+        reactor->handlers = (p_handler_t *)realloc(reactor->handlers, reactor->size * 2 * sizeof(p_handler_t));
+        reactor->fds = (struct pollfd *)realloc(reactor->fds, reactor->size * 2 * sizeof(struct pollfd));
+        reactor->size *= 2;
+        addFd(reactor, fd, handler);
+    }
 }
 
 void waitFor(p_reactor_t reactor)
@@ -63,11 +65,12 @@ void waitFor(p_reactor_t reactor)
     int numEvents = poll(reactor->fds, reactor->count, -1);
     if (numEvents > 0)
     {
-        for (int i = 0; i < reactor->count; i++)
+        int currCount = reactor->count;
+        for (int i = 0; i < currCount; i++)
         {
             if (reactor->fds[i].revents & POLLIN)
             {
-                reactor->handlers[i]->handler(reactor->handlers[i]->arg);
+                reactor->handlers[i]->handler(reactor, reactor->fds[i].fd, reactor->handlers[i]->arg);
             }
         }
     }
@@ -87,7 +90,6 @@ int findFd(p_reactor_t reactor, int fd)
 
 void deleteFd(p_reactor_t reactor, int fd)
 {
-    pthread_mutex_lock(&reactor->thread);
     int index = findFd(reactor, fd);
     if (index != -1)
     {
@@ -99,7 +101,6 @@ void deleteFd(p_reactor_t reactor, int fd)
         }
         reactor->count--;
     }
-    pthread_mutex_unlock(&reactor->thread);
 }
 
 void deleteReactor(p_reactor_t reactor)
