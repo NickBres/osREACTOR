@@ -20,7 +20,7 @@ All tests have been performed on a MacBook Pro with an ARM processor using the U
   cd osREACTOR/
   make
   export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
-  ./server
+  ./react_server
    ```
 After server is running you can connect to it using a TCP/IP client (like netcat or telnet). (Simple client example also included)
 
