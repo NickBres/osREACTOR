@@ -18,7 +18,7 @@ void stopReactor(p_reactor_t reactor)
     if (reactor != NULL)
     {
         reactor->isRunning = 0;
-        pthread_join(reactor->thread, NULL);
+        waitFor(reactor);
     }
 }
 
@@ -36,7 +36,18 @@ void *runReactor(void *arg)
     p_reactor_t reactor = (p_reactor_t)arg;
     while (reactor->isRunning)
     {
-        waitFor(reactor);
+        int numEvents = poll(reactor->fds, reactor->count, -1);
+    if (numEvents > 0)
+    {
+        int currCount = reactor->count;
+        for (int i = 0; i < currCount; i++)
+        {
+            if (reactor->fds[i].revents & POLLIN)
+            {
+                reactor->handlers[i]->handler(reactor, reactor->fds[i].fd, reactor->handlers[i]->arg);
+            }
+        }
+    }
     }
 }
 
@@ -63,18 +74,8 @@ void addFd(p_reactor_t reactor, int fd, handler_t handler)
 
 void waitFor(p_reactor_t reactor)
 {
-    int numEvents = poll(reactor->fds, reactor->count, -1);
-    if (numEvents > 0)
-    {
-        int currCount = reactor->count;
-        for (int i = 0; i < currCount; i++)
-        {
-            if (reactor->fds[i].revents & POLLIN)
-            {
-                reactor->handlers[i]->handler(reactor, reactor->fds[i].fd, reactor->handlers[i]->arg);
-            }
-        }
-    }
+    if(reactor && !reactor->isRunning)
+        pthread_join(reactor->thread, NULL);
 }
 
 int findFd(p_reactor_t reactor, int fd)
